@@ -3,7 +3,7 @@ import sequelizeInstance from "../config/sequelize-db.js";
 import { dateToEpoch } from "../helpers/date-helper.js";
 
 export default class LaporanRepository {
-  static async getRekapitulasiKunjungan(filter = {}, { limit, offset } = {}) {
+  static async getRekapitulasiKunjungan({ filter = {}, limit, offset }) {
     let query = `
       SELECT TYPE, payment_method, pg.name, COUNT(x.id) FROM 
       (	
@@ -29,6 +29,15 @@ export default class LaporanRepository {
     // Check filter
     const replacements = { limit, offset }
     const whereCondition = []
+
+    if (filter.type && filter.type.length) {
+      const typePlaceholder = filter.type.map((_, index) => `:type${index}`).join(', ')
+      whereCondition.push(`x.TYPE IN (${typePlaceholder})`)
+
+      filter.type.forEach((type, index) => {
+        replacements[`type${index}`] = type
+      })
+    }
 
     if (filter.name) {
       whereCondition.push(`pg.name ILIKE :name`)
@@ -79,5 +88,9 @@ export default class LaporanRepository {
     ])
 
     return [results, countResult[0].count]
+  }
+
+  static async getRekapitulasiTindakan({ filter = {}, limit, offset }) {
+
   }
 }

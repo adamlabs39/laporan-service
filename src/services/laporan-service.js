@@ -9,9 +9,13 @@ const PaymentMethodEnum = {
 
 export default class LaporanService {
   static async getRekapitulasiKunjungan(filter) {
-    const { limit = 0, offset = 12, ...validatedFilter } = ZodValidator.validate(LaporanValidator.KUNJUNGAN, filter)
+    const { limit = 12, offset = 0, ...validatedFilter } = ZodValidator.validate(LaporanValidator.KUNJUNGAN, filter)
+    console.log("Filter : ", validatedFilter)
+    const [data, total] = await LaporanRepository.getRekapitulasiKunjungan({ filter: validatedFilter, limit, offset })
 
-    const [data, total] = await LaporanRepository.getRekapitulasiKunjungan(validatedFilter, { limit, offset })
+    const convertedData = data.map((item) =>
+      item.payment_method = PaymentMethodEnum[item.payment_method],
+    )
 
     // Handling pagination
     const page = Math.floor(offset / limit) + 1
