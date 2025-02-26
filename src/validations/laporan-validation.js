@@ -17,13 +17,13 @@ export default class LaporanValidator {
     endDate: z.string().date().nullable().optional(),
     limit: z
       .string()
-      .regex(/^\d$/, "limit must be a number")
+      .regex(/^\d+$/, "limit must be a number")
       .optional()
       .default("12")
       .transform(Number),
     offset: z
       .string()
-      .regex(/^\d$/, "offset must be a number")
+      .regex(/^\d+$/, "offset must be a number")
       .optional()
       .default("0")
       .transform(Number),
