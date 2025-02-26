@@ -229,7 +229,7 @@ export default class LaporanRepository {
     `
 
     const countQuery = `
-      SELECT COUNT (*) FROM (${query})
+      SELECT COUNT (y.tindakan) FROM (${query}) y
     `
 
     query += `
