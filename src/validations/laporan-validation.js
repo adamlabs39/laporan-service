@@ -1,13 +1,32 @@
 import { z } from "zod";
 
 export default class LaporanValidator {
-  static KUNJUNGAN = z.object({
+  static #LAPORAN = z.object({
     name: z.string().optional(),
-    payment_method: z.number().int().optional(),
+    type: z
+      .union([z.string(), z.string().array()])
+      .transform((value) => (typeof value === 'string' ? [value] : value))
+      .optional(),
+    payment_method: z
+      .string()
+      .regex(/^\d$/, "payment_method must be a number")
+      .optional()
+      .default("0")
+      .transform(Number),
     startDate: z.string().date().nullable().optional(),
     endDate: z.string().date().nullable().optional(),
-    limit: z.number().int().positive().default(12),
-    offset: z.number().int().min(0).default(0)
+    limit: z
+      .string()
+      .regex(/^\d$/, "limit must be a number")
+      .optional()
+      .default("12")
+      .transform(Number),
+    offset: z
+      .string()
+      .regex(/^\d$/, "offset must be a number")
+      .optional()
+      .default("0")
+      .transform(Number),
   }).refine(data => {
     if (data.startDate && data.endDate) {
       return new Date(startDate) > new Date(endDate)
@@ -17,4 +36,8 @@ export default class LaporanValidator {
     message: 'endDate must be greater than startDate',
     path: ['endDate']
   })
+
+  static KUNJUNGAN = this.#LAPORAN
+  static TINDAKAN = this.#LAPORAN
+  static LAB = this.#LAPORAN
 }
