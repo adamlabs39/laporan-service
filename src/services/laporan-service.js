@@ -59,6 +59,20 @@ export default class LaporanService {
   static async getRekapitulasiLab(filter) {
     const { limit, offset, ...validatedFilter } = ZodValidator.validate(LaporanValidator.LAB, filter)
     const [data, total] = await LaporanRepository.getRekapitulasiLab({ filter: validatedFilter, limit, offset })
+
+    data.map((item) => {
+      item.payment_method = PaymentMethodEnum[item.payment_method]
+    })
+
+    //Handling pagination
+    const pagination = this.paginate({ total: parseInt(total), limit, offset })
+
+    return {
+      properties: {
+        ...pagination
+      },
+      payload: data
+    }
   }
 
   static paginate({ total, limit, offset }) {
