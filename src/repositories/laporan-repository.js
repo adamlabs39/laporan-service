@@ -1,25 +1,26 @@
-import { QueryTypes, } from "sequelize"
+import { DataTypes, QueryInterface, QueryTypes, where, } from "sequelize"
 import sequelizeInstance from "../config/sequelize-db.js";
 import { dateToEpoch } from "../helpers/date-helper.js";
+import BadRequestException from "../exceptions/bad-request-exception.js";
 
 export default class LaporanRepository {
   static async getRekapitulasiKunjungan({ filter = {}, limit, offset }) {
     let query = `
-      SELECT TYPE, payment_method, pg.name, COUNT(x.id) FROM 
+      SELECT visit_type, payment_method, pg.name as doctor_name, COUNT(x.id) AS total FROM 
       (	
-      	SELECT 'IGD' AS TYPE, igd.id, igd.payment_method, p.pegawai_uuid, igd.tanggal_daftar FROM instalasi_gawat_darurats igd
+      	SELECT 'igd' AS visit_type, igd.id, igd.payment_method, p.pegawai_uuid, igd.tanggal_daftar FROM instalasi_gawat_darurats igd
       	JOIN practitioner p ON igd.practitioner_uuid = p.uuid
       	WHERE igd.deleted_at IS NULL
       
       	UNION ALL
       
-      	SELECT 'Rawat Inap' AS TYPE, ri.id, ri.payment_method, p.pegawai_uuid, ri.tanggal_daftar FROM rawat_inaps ri
+      	SELECT 'rawat_inap' AS visit_type, ri.id, ri.payment_method, p.pegawai_uuid, ri.tanggal_daftar FROM rawat_inaps ri
       	JOIN practitioner p ON ri.practitioner_uuid = p.uuid
       	WHERE ri.deleted_at IS NULL
       
       	UNION ALL
       
-      	SELECT 'Rawat Jalan' AS TYPE, rj.id, rj.payment_method, p.pegawai_uuid, rj.tanggal_daftar FROM rawat_jalans rj
+      	SELECT 'rawat_jalan' AS visit_type, rj.id, rj.payment_method, p.pegawai_uuid, rj.tanggal_daftar FROM rawat_jalans rj
       	JOIN practitioner p ON rj.practitioner_uuid = p.uuid
       	WHERE rj.deleted_at IS NULL
       ) x
@@ -32,7 +33,7 @@ export default class LaporanRepository {
 
     if (filter.type && filter.type.length) {
       const typePlaceholder = filter.type.map((_, index) => `:type${index}`).join(', ')
-      whereCondition.push(`x.TYPE IN (${typePlaceholder})`)
+      whereCondition.push(`x.visit_type IN (${typePlaceholder})`)
 
       filter.type.forEach((type, index) => {
         replacements[`type${index}`] = type
@@ -44,7 +45,7 @@ export default class LaporanRepository {
       replacements.name = `%${filter.name}%`
     }
 
-    if (filter.payment_method) {
+    if (filter.payment_method || filter.payment_method !== 0) {
       whereCondition.push(`x.payment_method = :payment_method`)
       replacements.payment_method = filter.payment_method
     }
@@ -65,7 +66,7 @@ export default class LaporanRepository {
     }
 
     query += `
-      GROUP BY x.type, x.payment_method, pg.name
+      GROUP BY x.visit_type, x.payment_method, pg.name
     `
 
     let countQuery = `
@@ -87,10 +88,168 @@ export default class LaporanRepository {
       })
     ])
 
+    if (!results || !countResult) {
+      throw new BadRequestException("Data gagal ditampilkan")
+    }
+
     return [results, countResult[0].count]
   }
 
   static async getRekapitulasiTindakan({ filter = {}, limit, offset }) {
+    let query = `
+      SELECT ht.nama_tindakan AS "tindakan", ht.pelayanan AS "visit_type", ht.payment_method, COUNT(ht.uuid) AS total
+      FROM history_tindakan ht
+    `
 
+    // Check filter
+    const whereReplacements = [`ht.deleted_at IS NULL`]
+    const replacements = { limit, offset }
+
+    if (filter.name) {
+      whereReplacements.push(`ht.nama_tindakan ILIKE :name`)
+      replacements.name = `%${filter.name}%`
+    }
+
+    if (filter.type) {
+      const typeReplacements = filter.type.map((_, index) => `:type${index}`).join(', ')
+      whereReplacements.push(`ht.pelayanan IN (${typeReplacements})`)
+
+      filter.type.forEach((type, index) => {
+        replacements[`type${index}`] = type
+      })
+    }
+
+    if (filter.payment_method || filter.payment_method !== 0) {
+      whereReplacements.push(`ht.payment_method = :payment_method`)
+      replacements.payment_method = filter.payment_method
+    }
+
+    if (filter.startDate) {
+      whereReplacements.push(`ht.tanggal_tindakan >= :startDate`)
+      replacements.startDate = dateToEpoch(filter.startDate)
+    }
+
+    if (filter.endDate) {
+      whereReplacements.push(`ht.tanggal_tindakan <= :endDate`)
+      replacements.endDate = dateToEpoch(filter.endDate)
+    }
+
+    // Merge all where condition
+    if (whereReplacements.length > 0) {
+      query += ' WHERE ' + whereReplacements.join(' AND ')
+    }
+
+    query += `
+      GROUP BY ht.nama_tindakan, ht.pelayanan, ht.payment_method 
+    `
+
+    let countQuery = `
+      SELECT COUNT(y.tindakan) FROM (${query}) y
+    `
+
+    query += `
+      LIMIT :limit OFFSET :offset
+    `
+
+    const [results, countResult] = await Promise.all([
+      sequelizeInstance.query(query, {
+        replacements,
+        type: QueryTypes.SELECT
+      }),
+      sequelizeInstance.query(countQuery, {
+        replacements,
+        type: QueryTypes.SELECT
+      })
+    ])
+
+    if (!results || !countResult) {
+      throw new BadRequestException("Data gagal ditampilkan")
+    }
+
+    return [results, countResult[0].count]
+  }
+
+  static async getRekapitulasiLab({ filter = {}, limit, offset }) {
+    let query = `
+      SELECT 
+          tindakan_data.tindakan,
+          ol.pelayanan AS visit_type,
+          ol.payment_method,
+          COUNT(*) AS total
+      FROM order_lab ol
+      JOIN order_lab_pemeriksaan olp ON olp.order_lab_uuid = ol.uuid
+      JOIN tarif_lab_item tl ON tl.uuid = olp.tarif_lab_item_uuid
+      LEFT JOIN LATERAL (
+          SELECT ip.name AS tindakan FROM item_pemeriksaan ip WHERE ip.uuid = tl.item_pemeriksaan_uuid
+          UNION ALL
+          SELECT kp.name AS tindakan FROM kelompok_pemeriksaan kp WHERE kp.uuid = tl.kelompok_pemeriksaan_uuid
+      ) AS tindakan_data ON TRUE
+    `
+
+    // Check filter
+    const whereReplacements = [`ol.deleted_at IS NULL`]
+    const replacements = { limit, offset }
+
+    if (filter.name) {
+      whereReplacements.push(`tindakan_data ILIKE :name`)
+      replacements.name = `%${filter.name}%`
+    }
+
+    if (filter.type) {
+      const typeReplacements = filter.type.map((_, index) => `:type${index}`).join(', ')
+      whereReplacements.push(`ol.pelayanan IN (${typeReplacements})`)
+
+      filter.type.forEach((type, index) => {
+        replacements[`type${index}`] = type
+      })
+    }
+
+    if (filter.payment_method || filter.payment_method !== 0) {
+      whereReplacements.push(`ol.payment_method = :payment_method`)
+      replacements.payment_method = filter.payment_method
+    }
+
+    if (filter.startDate) {
+      whereReplacements.push(`ol.startDate >= :startDate`)
+      replacements.startDate = dateToEpoch(filter.startDate)
+    }
+
+    if (filter.endDate) {
+      whereReplacements.push(`ol.endDate >= :endDate`)
+      replacements.endDate = dateToEpoch(filter.endDate)
+    }
+
+    // Merge all where condition
+    if (whereReplacements > 0) {
+      query += ' WHERE ' + whereReplacements.join(' AND ')
+    }
+
+    query += `
+      GROUP BY tindakan_data.tindakan, ol.pelayanan, ol.payment_method
+    `
+
+    const countQuery = `
+      SELECT COUNT (*) FROM (${query})
+    `
+
+    query += `
+      LIMIT :limit OFFSET :offset
+    `
+
+    const [results, countResult] = await Promise.all([
+      sequelizeInstance.query(query, {
+        replacements,
+        type: QueryTypes.SELECT
+      }),
+      sequelizeInstance.query(countQuery, {
+        replacements,
+        type: QueryTypes.SELECT
+      })
+    ])
+
+    if (!results || !countResult) {
+      throw new BadRequestException("Data gagal ditampilkan")
+    }
+    return [results, countResult[0].count]
   }
 }
