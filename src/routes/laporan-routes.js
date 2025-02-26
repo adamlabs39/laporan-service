@@ -2,6 +2,7 @@ import express from "express"
 import LaporanController from "../controllers/laporan-controller.js"
 
 const laporanRoutes = express.Router()
-laporanRoutes.post("/laporan/kunjungan", LaporanController.getRekapitulasiKunjungan)
+laporanRoutes.get("/rekap/status-rawat", LaporanController.getRekapitulasiKunjungan)
+laporanRoutes.get("/rekap/tindakan", LaporanController.getRekapitulasiTindakan)
 
 export default laporanRoutes
