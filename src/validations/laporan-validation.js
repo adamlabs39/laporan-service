@@ -40,4 +40,14 @@ export default class LaporanValidator {
   static KUNJUNGAN = this.#LAPORAN
   static TINDAKAN = this.#LAPORAN
   static LAB = this.#LAPORAN
+  static DIAGNOSIS = this.#LAPORAN.and(
+    z.object({
+      gender: z
+        .enum(["0", "1", "2"])
+        .optional()
+        .default("0")
+        .transform(Number)
+        .describe({ 0: "all", 1: "Female", 2: "Male" })
+    })
+  )
 }
