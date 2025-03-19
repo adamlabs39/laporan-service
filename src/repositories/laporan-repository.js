@@ -2,6 +2,13 @@ import { DataTypes, QueryInterface, QueryTypes, where, } from "sequelize"
 import sequelizeInstance from "../config/sequelize-db.js";
 import { dateToEpoch } from "../helpers/date-helper.js";
 import BadRequestException from "../exceptions/bad-request-exception.js";
+import { getMongoDatabase } from "../config/mongo-db.js";
+
+const PelayananToTableNameEnum = {
+  "igd": "instalasi_gawat_darurats",
+  "ri": "rawat_inaps",
+  "rj": "rawat_jalans"
+}
 
 export default class LaporanRepository {
   static async getRekapitulasiKunjungan({ filter = {}, limit, offset }) {
@@ -220,7 +227,7 @@ export default class LaporanRepository {
     }
 
     // Merge all where condition
-    if (whereReplacements > 0) {
+    if (whereReplacements.length > 0) {
       query += ' WHERE ' + whereReplacements.join(' AND ')
     }
 
@@ -251,5 +258,102 @@ export default class LaporanRepository {
       throw new BadRequestException("Data gagal ditampilkan")
     }
     return [results, countResult[0].count]
+  }
+
+  static async getDiagnosisFromMongo({ filter = {}, limit, offset }) {
+    const db = await getMongoDatabase()
+    const collection = await db.collection("rekam_medises")
+
+    const pipeline = [
+      {
+        $group: {
+          _id: {
+            pelayanan: "$pelayanan", // Group by pelayanan
+            diagnosis: "$summary.diagnosis_primer", // Group by diagnosis_primer
+          },
+          no_pelayanan: { $push: "$no_pelayanan" }, // Push no_pelayanan into an array
+        }
+      },
+      {
+        $project: {
+          _id: 0, // Exclude the top-level _id
+          pelayanan: "$_id.pelayanan", // Include pelayanan as the top-level key
+          diagnosis: "$_id.diagnosis", // Include the list of diagnoses and their no_pelayanan
+          no_pelayanan: 1,
+        }
+      }
+    ];
+
+    const rekamMedises = await collection.aggregate(pipeline).toArray()
+    return rekamMedises
+  }
+
+  static async getRekapitulasiDiagnosis({ rekamMedises, filter }) {
+    let query = []
+    const replacements = {}
+    let paramCounter = 0
+
+    rekamMedises.forEach((rekamMedis) => {
+      let rekamMedisQuery = `
+        SELECT '${rekamMedis.pelayanan}' as visit_type, '${rekamMedis.diagnosis}' as diagnosis, x.gender, x.tanggal_daftar, bd.age_year FROM ${PelayananToTableNameEnum[rekamMedis.pelayanan]} x
+        JOIN birth_details bd ON x.birth_detail_uuid = bd.uuid 
+      `
+
+      const whereReplacements = []
+      //
+      // Create parameter placeholders using sequential numbers
+      const placeholders = rekamMedis.no_pelayanan.map(() => `:param_${paramCounter++}`).join(', ')
+
+      // Add WHERE clause with proper spacing
+      rekamMedisQuery += ` WHERE x.no_pelayanan IN (${placeholders})`
+
+      // Add values to replacements object
+      rekamMedis.no_pelayanan.forEach((data, index) => {
+        replacements[`param_${paramCounter - rekamMedis.no_pelayanan.length + index}`] = data
+      })
+
+      // const pelayananReplacements = rekamMedis.no_pelayanan.map((_, index) => `:no_pelayanan_${rekamMedis.diagnosis}_${index}`).join(', ')
+      // whereReplacements.push(`x.no_pelayanan IN (${pelayananReplacements})`)
+
+      // rekamMedis.no_pelayanan.forEach((data, index) => {
+      //   replacements[`no_pelayanan_${rekamMedis.diagnosis}_${index}`] = data
+      // })
+
+      // if (whereReplacements.length > 0) {
+      //   rekamMedisQuery += ' WHERE' + whereReplacements.join(' AND ')
+      // }
+
+      query.push(rekamMedisQuery)
+    })
+
+    console.log('query :' + query.join(' UNION ALL '))
+    console.log('replacements :' + JSON.stringify(replacements))
+
+    let finalQuery = `
+      SELECT 
+        y.diagnosis,
+        y.gender,
+        COUNT(CASE WHEN y.age_year BETWEEN 1 AND 4 THEN 1 END) AS "age1-4",
+        COUNT(CASE WHEN y.age_year BETWEEN 5 AND 14 THEN 1 END) AS "age5-14",
+        COUNT(CASE WHEN y.age_year BETWEEN 15 AND 24 THEN 1 END) AS "age15-24",
+        COUNT(CASE WHEN y.age_year BETWEEN 25 AND 44 THEN 1 END) AS "age25-44",
+        COUNT(CASE WHEN y.age_year BETWEEN 45 AND 64 THEN 1 END) AS "age45-64",
+        COUNT(CASE WHEN y.age_year >= 65 THEN 1 END) AS "age65+"
+      FROM (${query.join(' UNION ALL ')}) y
+    `
+
+    if (filter.gender) {
+      finalQuery += ' WHERE y.gender = :gender'
+      replacements.gender = filter.gender
+    }
+
+    finalQuery += ' GROUP BY y.diagnosis, y.gender'
+
+    const results = await sequelizeInstance.query(finalQuery, {
+      replacements,
+      type: QueryTypes.SELECT
+    })
+
+    return results
   }
 }
