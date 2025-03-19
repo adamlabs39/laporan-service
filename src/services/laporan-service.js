@@ -78,6 +78,13 @@ export default class LaporanService {
     }
   }
 
+  static async getRekapitulasiDiagnosis(filter) {
+    const { limit, offset, ...validatedFilter } = ZodValidator.validate(LaporanValidator.DIAGNOSIS, filter)
+    const rekamMedises = await LaporanRepository.getDiagnosisFromMongo({ filter: validatedFilter, limit, offset })
+    const data = await LaporanRepository.getRekapitulasiDiagnosis({ rekamMedises, filter: validatedFilter })
+    return { payload: data }
+  }
+
   static async exportRekapitulasiKunjungan(filter) {
     const { limit = null, offset = null, ...validatedFilter } = ZodValidator.validate(LaporanValidator.KUNJUNGAN, filter)
 
@@ -87,56 +94,7 @@ export default class LaporanService {
       item.payment_method = PaymentMethodEnum[item.payment_method]
     })
 
-    const workbook = new ExcelJS.Workbook()
-    const worksheet = workbook.addWorksheet('Rekapitulasi Kunjungan')
-
-    // Add Title row
-    worksheet.mergeCells('A1:E1')
-    worksheet.getCell('A1').value = 'JUMLAH KUNJUNGAN BERDASARKAN STATUS RAWAT'
-    worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }
-    worksheet.getCell('A1').font = { bold: true, size: 14 }
-
-    worksheet.mergeCells('A2:E2')
-    worksheet.getCell('A2').value = `Tanggal: ${validatedFilter.startDate} s/d ${validatedFilter.endDate}`
-    worksheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' }
-    worksheet.getCell('A2').font = { bold: true, size: 14 }
-
-    // Manually set headers at row 4
-    worksheet.getCell('A4').value = "No."
-    worksheet.getCell('B4').value = 'Jenis Kunjungan'
-    worksheet.getCell('C4').value = 'Metode Pembayaran'
-    worksheet.getCell('D4').value = 'Nama Dokter'
-    worksheet.getCell('E4').value = 'Total Pasien'
-
-    // Style the header row
-    const headerRow = worksheet.getRow(4)
-    headerRow.eachCell((cell) => {
-      cell.font = { bold: true }
-      cell.alignment = { horizontal: 'center' }
-    })
-
-    // Set column widths
-    worksheet.columns = [
-      { key: 'no', width: 5 },
-      { key: 'visit_type', width: 15 },
-      { key: 'payment_method', width: 20 },
-      { key: 'doctor_name', width: 25 },
-      { key: 'total', width: 15 }
-    ]
-
-    // Add data rows with numbering
-    data.forEach((row, index) => {
-      worksheet.getCell(`A${index + 5}`).value = index + 1
-      worksheet.getCell(`B${index + 5}`).value = row.visit_type
-      worksheet.getCell(`C${index + 5}`).value = row.payment_method
-      worksheet.getCell(`D${index + 5}`).value = row.doctor_name
-      worksheet.getCell(`E${index + 5}`).value = Number(row.total)
-
-      worksheet.getCell(`A${index + 5}`).alignment = { horizontal: 'center' }
-    })
-
-    const buffer = await workbook.xlsx.writeBuffer()
-    return buffer
+    return { payload: data }
   }
 
   static async exportRekapitulasiTindakan(filter) {
@@ -148,56 +106,7 @@ export default class LaporanService {
       item.payment_method = PaymentMethodEnum[item.payment_method]
     })
 
-    const workbook = new ExcelJS.Workbook()
-    const worksheet = workbook.addWorksheet('Rekapitulasi Tindakan')
-
-    // Add Title row
-    worksheet.mergeCells('A1:E1')
-    worksheet.getCell('A1').value = 'REKAPITULASI TINDAKAN'
-    worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }
-    worksheet.getCell('A1').font = { bold: true, size: 14 }
-
-    worksheet.mergeCells('A2:E2')
-    worksheet.getCell('A2').value = `Tanggal: ${validatedFilter.startDate} s/d ${validatedFilter.endDate}`
-    worksheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' }
-    worksheet.getCell('A2').font = { bold: true, size: 14 }
-
-    // Manually set headers at row 4
-    worksheet.getCell('A4').value = "No."
-    worksheet.getCell('B4').value = 'Tindakan'
-    worksheet.getCell('C4').value = 'Jenis Kunjungan'
-    worksheet.getCell('D4').value = 'Metode Pembayaran'
-    worksheet.getCell('E4').value = 'Total Pasien'
-
-    // Style the header row
-    const headerRow = worksheet.getRow(4)
-    headerRow.eachCell((cell) => {
-      cell.font = { bold: true }
-      cell.alignment = { horizontal: 'center' }
-    })
-
-    // Set column widths
-    worksheet.columns = [
-      { key: 'no', width: 5 },
-      { key: 'tindakan', width: 15 },
-      { key: 'visit_type', width: 20 },
-      { key: 'payment_method', width: 25 },
-      { key: 'total', width: 15 }
-    ]
-
-    // Add data rows with numbering
-    data.forEach((row, index) => {
-      worksheet.getCell(`A${index + 5}`).value = index + 1
-      worksheet.getCell(`B${index + 5}`).value = row.tindakan
-      worksheet.getCell(`C${index + 5}`).value = row.visit_type
-      worksheet.getCell(`D${index + 5}`).value = row.payment_method
-      worksheet.getCell(`E${index + 5}`).value = Number(row.total)
-
-      worksheet.getCell(`A${index + 5}`).alignment = { horizontal: 'center' }
-    })
-
-    const buffer = await workbook.xlsx.writeBuffer()
-    return buffer
+    return { payload: data }
   }
 
   static async exportRekapitulasiLab(filter) {
@@ -209,56 +118,7 @@ export default class LaporanService {
       item.payment_method = PaymentMethodEnum[item.payment_method]
     })
 
-    const workbook = new ExcelJS.Workbook()
-    const worksheet = workbook.addWorksheet('Rekapitulasi Pemeriksaan Lab')
-
-    // Add Title row
-    worksheet.mergeCells('A1:E1')
-    worksheet.getCell('A1').value = 'REKAPITULASI PEMERIKSAAN LAB'
-    worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }
-    worksheet.getCell('A1').font = { bold: true, size: 14 }
-
-    worksheet.mergeCells('A2:E2')
-    worksheet.getCell('A2').value = `Tanggal: ${validatedFilter.startDate} s/d ${validatedFilter.endDate}`
-    worksheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' }
-    worksheet.getCell('A2').font = { bold: true, size: 14 }
-
-    // Manually set headers at row 4
-    worksheet.getCell('A4').value = "No."
-    worksheet.getCell('B4').value = 'Tindakan'
-    worksheet.getCell('C4').value = 'Jenis Kunjungan'
-    worksheet.getCell('D4').value = 'Metode Pembayaran'
-    worksheet.getCell('E4').value = 'Total Pasien'
-
-    // Style the header row
-    const headerRow = worksheet.getRow(4)
-    headerRow.eachCell((cell) => {
-      cell.font = { bold: true }
-      cell.alignment = { horizontal: 'center' }
-    })
-
-    // Set column widths
-    worksheet.columns = [
-      { key: 'no', width: 5 },
-      { key: 'tindakan', width: 15 },
-      { key: 'visit_type', width: 20 },
-      { key: 'payment_method', width: 25 },
-      { key: 'total', width: 15 }
-    ]
-
-    // Add data rows with numbering
-    data.forEach((row, index) => {
-      worksheet.getCell(`A${index + 5}`).value = index + 1
-      worksheet.getCell(`B${index + 5}`).value = row.tindakan
-      worksheet.getCell(`C${index + 5}`).value = row.visit_type
-      worksheet.getCell(`D${index + 5}`).value = row.payment_method
-      worksheet.getCell(`E${index + 5}`).value = Number(row.total)
-
-      worksheet.getCell(`A${index + 5}`).alignment = { horizontal: 'center' }
-    })
-
-    const buffer = await workbook.xlsx.writeBuffer()
-    return buffer
+    return { payload: data }
   }
 
   static paginate({ total, limit, offset }) {
