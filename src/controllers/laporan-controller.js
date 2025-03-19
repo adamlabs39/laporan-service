@@ -41,14 +41,26 @@ export default class LaporanController {
     }
   }
 
+  static async getRekapitulasiDiagnosis(request, response, nextFunction) {
+    try {
+      const result = await LaporanService.getRekapitulasiDiagnosis(request.query)
+      return response.status(200).json({
+        message: 'Data berhasil ditampilkan',
+        ...result
+      })
+    } catch (error) {
+      nextFunction(error)
+    }
+  }
+
   static async exportRekapitulasiKunjungan(request, response, nextFunction) {
     try {
-      const buffer = await LaporanService.exportRekapitulasiKunjungan(request.query)
+      const result = await LaporanService.exportRekapitulasiKunjungan(request.query)
 
-      response.setHeader('Content-Disposition', 'attachment; filename="rekapitulasi_kunjungan.xlsx"')
-      response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-
-      return response.status(200).send(buffer)
+      return response.status(200).send({
+        message: 'Data berhasil di export',
+        ...result
+      })
     } catch (error) {
       nextFunction(error)
     }
@@ -56,12 +68,12 @@ export default class LaporanController {
 
   static async exportRekapitulasiTindakan(request, response, nextFunction) {
     try {
-      const buffer = await LaporanService.exportRekapitulasiTindakan(request.query)
+      const result = await LaporanService.exportRekapitulasiTindakan(request.query)
 
-      response.setHeader('Content-Disposition', 'attachment; filename="rekapitulasi_tindakan.xlsx"')
-      response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-
-      return response.status(200).send(buffer)
+      return response.status(200).send({
+        message: 'Data berhasil di export',
+        ...result
+      })
     } catch (error) {
       nextFunction(error)
     }
@@ -69,12 +81,12 @@ export default class LaporanController {
 
   static async exportRekapitulasiLab(request, response, nextFunction) {
     try {
-      const buffer = await LaporanService.exportRekapitulasiKunjungan(request.query)
+      const result = await LaporanService.exportRekapitulasiKunjungan(request.query)
 
-      response.setHeader('Content-Disposition', 'attachment; filename="rekapitulasi_pemeriksaan_lab.xlsx"')
-      response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-
-      return response.status(200).send(buffer)
+      return response.status(200).send({
+        message: 'Data berhasil di export',
+        ...result
+      })
     } catch (error) {
       nextFunction(error)
     }
