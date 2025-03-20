@@ -91,4 +91,16 @@ export default class LaporanController {
       nextFunction(error)
     }
   }
+  static async exportRekapitulasiDiagnosis(request, response, nextFunction) {
+    try {
+      const result = await LaporanService.exportRekapitulasiDiagnosis(request.query)
+
+      return response.status(200).send({
+        message: 'Data berhasil di export',
+        ...result
+      })
+    } catch (error) {
+      nextFunction(error)
+    }
+  }
 }
