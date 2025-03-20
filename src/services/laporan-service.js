@@ -80,9 +80,17 @@ export default class LaporanService {
 
   static async getRekapitulasiDiagnosis(filter) {
     const { limit, offset, ...validatedFilter } = ZodValidator.validate(LaporanValidator.DIAGNOSIS, filter)
-    const rekamMedises = await LaporanRepository.getDiagnosisFromMongo({ filter: validatedFilter, limit, offset })
+    const [rekamMedises, total] = await LaporanRepository.getDiagnosisFromMongo({ filter: validatedFilter, limit, offset })
     const data = await LaporanRepository.getRekapitulasiDiagnosis({ rekamMedises, filter: validatedFilter })
-    return { payload: data }
+
+    const pagination = this.paginate({ total: parseInt(total), limit, offset })
+
+    return {
+      properties: {
+        ...pagination
+      },
+      payload: data
+    }
   }
 
   static async exportRekapitulasiKunjungan(filter) {
@@ -117,6 +125,14 @@ export default class LaporanService {
     data.map((item) => {
       item.payment_method = PaymentMethodEnum[item.payment_method]
     })
+
+    return { payload: data }
+  }
+
+  static async exportRekapitulasiDiagnosis(filter) {
+    const { limit = null, offset = null, ...validatedFilter } = ZodValidator.validate(LaporanValidator.DIAGNOSIS, filter)
+    const [rekamMedises] = await LaporanRepository.getDiagnosisFromMongo({ filter: validatedFilter, limit, offset })
+    const data = await LaporanRepository.getRekapitulasiDiagnosis({ rekamMedises, filter: validatedFilter })
 
     return { payload: data }
   }
