@@ -281,11 +281,24 @@ export default class LaporanRepository {
           diagnosis: "$_id.diagnosis", // Include the list of diagnoses and their no_pelayanan
           no_pelayanan: 1,
         }
+      },
+      {
+        $facet: {
+          data: [
+            { $limit: limit },
+            { $skip: offset }
+          ],
+          totalCount: [{ $count: "total" }]
+        }
       }
     ];
 
-    const rekamMedises = await collection.aggregate(pipeline).toArray()
-    return rekamMedises
+    const result = await collection.aggregate(pipeline).toArray()
+    const results = result[0]?.data || []
+    const count = result[0]?.totalCount[0]?.total || 0
+
+    // const rekamMedises = await collection.aggregate(pipeline).toArray()
+    return [results, count]
   }
 
   static async getRekapitulasiDiagnosis({ rekamMedises, filter }) {
@@ -299,40 +312,24 @@ export default class LaporanRepository {
         JOIN birth_details bd ON x.birth_detail_uuid = bd.uuid 
       `
 
-      const whereReplacements = []
-      //
-      // Create parameter placeholders using sequential numbers
+      // Placeholders for each no_pelayanan
       const placeholders = rekamMedis.no_pelayanan.map(() => `:param_${paramCounter++}`).join(', ')
 
-      // Add WHERE clause with proper spacing
       rekamMedisQuery += ` WHERE x.no_pelayanan IN (${placeholders})`
 
-      // Add values to replacements object
+      // Replacement for each placeholders
       rekamMedis.no_pelayanan.forEach((data, index) => {
         replacements[`param_${paramCounter - rekamMedis.no_pelayanan.length + index}`] = data
       })
 
-      // const pelayananReplacements = rekamMedis.no_pelayanan.map((_, index) => `:no_pelayanan_${rekamMedis.diagnosis}_${index}`).join(', ')
-      // whereReplacements.push(`x.no_pelayanan IN (${pelayananReplacements})`)
-
-      // rekamMedis.no_pelayanan.forEach((data, index) => {
-      //   replacements[`no_pelayanan_${rekamMedis.diagnosis}_${index}`] = data
-      // })
-
-      // if (whereReplacements.length > 0) {
-      //   rekamMedisQuery += ' WHERE' + whereReplacements.join(' AND ')
-      // }
-
       query.push(rekamMedisQuery)
     })
-
-    console.log('query :' + query.join(' UNION ALL '))
-    console.log('replacements :' + JSON.stringify(replacements))
 
     let finalQuery = `
       SELECT 
         y.diagnosis,
         y.gender,
+        y.visit_type,
         COUNT(CASE WHEN y.age_year BETWEEN 1 AND 4 THEN 1 END) AS "age1-4",
         COUNT(CASE WHEN y.age_year BETWEEN 5 AND 14 THEN 1 END) AS "age5-14",
         COUNT(CASE WHEN y.age_year BETWEEN 15 AND 24 THEN 1 END) AS "age15-24",
@@ -347,7 +344,7 @@ export default class LaporanRepository {
       replacements.gender = filter.gender
     }
 
-    finalQuery += ' GROUP BY y.diagnosis, y.gender'
+    finalQuery += ' GROUP BY y.diagnosis, y.gender, y.visit_type'
 
     const results = await sequelizeInstance.query(finalQuery, {
       replacements,
