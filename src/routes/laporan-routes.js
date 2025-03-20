@@ -9,5 +9,6 @@ laporanRoutes.get("/rekap/diagnosis", LaporanController.getRekapitulasiDiagnosis
 laporanRoutes.get("/rekap/status-rawat/export", LaporanController.exportRekapitulasiKunjungan)
 laporanRoutes.get("/rekap/tindakan/export", LaporanController.exportRekapitulasiTindakan)
 laporanRoutes.get("/rekap/pemeriksaan-lab/export", LaporanController.exportRekapitulasiLab)
+laporanRoutes.get("/rekap/diagnosis/export", LaporanController.exportRekapitulasiDiagnosis)
 
 export default laporanRoutes
