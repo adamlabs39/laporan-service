@@ -3,10 +3,10 @@ import dotenv from "dotenv"
 import laporanRoutes from "./routes/laporan-routes.js"
 import errorMiddleware from "./middlewares/error-middleware.js"
 dotenv.config()
-
+const baseUrl = `/${process.env.API_BASE ?? "api"}/${process.env.API_VERSION ?? "v3"}/${process.env.APPLICATION_MODULE ?? "laporan"}`
 const application = express()
 application.use(express.json())
-application.use(laporanRoutes)
+application.use(baseUrl, laporanRoutes)
 application.use(errorMiddleware)
 
 const SERVER_HOST = process.env.SERVER_HOST

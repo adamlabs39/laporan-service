@@ -1,0 +1,17 @@
+services:
+  adameds_laporan:
+    container_name: adameds-laporan
+    image: adameds_laporan:dev
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 3001:3001
+    restart: always
+    environment:
+      DOTENV_KEY: ${DOTENV_KEY}
+    networks:
+      - laporan-network
+networks:
+  laporan-network:
+    driver: bridge
