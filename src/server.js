@@ -2,10 +2,13 @@ import express from "express"
 import dotenv from "dotenv"
 import laporanRoutes from "./routes/laporan-routes.js"
 import errorMiddleware from "./middlewares/error-middleware.js"
+import authorizationSdk from "@adameds/authorization-sdk"
+
 dotenv.config()
 const baseUrl = `/${process.env.API_BASE ?? "api"}/${process.env.API_VERSION ?? "v3"}/${process.env.APPLICATION_MODULE ?? "laporan"}`
 const application = express()
 application.use(express.json())
+application.use(authorizationSdk([]))
 application.use(baseUrl, laporanRoutes)
 application.use(errorMiddleware)
 
