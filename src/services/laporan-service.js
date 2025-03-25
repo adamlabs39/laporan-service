@@ -17,10 +17,9 @@ const VisitTypeEnum = {
 }
 
 export default class LaporanService {
-  static async getRekapitulasiKunjungan(filter) {
+  static async getRekapitulasiKunjungan(author, filter) {
     const { limit, offset, ...validatedFilter } = ZodValidator.validate(LaporanValidator.KUNJUNGAN, filter)
-    console.log("Filter : ", validatedFilter, limit, offset)
-    const [data, total] = await LaporanRepository.getRekapitulasiKunjungan({ filter: validatedFilter, limit, offset })
+    const [data, total] = await LaporanRepository.getRekapitulasiKunjungan({ faskes_uuid: author.faskes_uuid, filter: validatedFilter, limit, offset })
 
     data.map((item) =>
       item.payment_method = PaymentMethodEnum[item.payment_method],
@@ -38,9 +37,9 @@ export default class LaporanService {
     }
   }
 
-  static async getRekapitulasiTindakan(filter) {
+  static async getRekapitulasiTindakan(author, filter) {
     const { limit, offset, ...validatedFilter } = ZodValidator.validate(LaporanValidator.TINDAKAN, filter)
-    const [data, total] = await LaporanRepository.getRekapitulasiTindakan({ filter: validatedFilter, limit, offset })
+    const [data, total] = await LaporanRepository.getRekapitulasiTindakan({ faskes_uuid: author.faskes_uuid, filter: validatedFilter, limit, offset })
 
     data.map((item) => {
       item.payment_method = PaymentMethodEnum[item.payment_method]
@@ -59,9 +58,9 @@ export default class LaporanService {
     }
   }
 
-  static async getRekapitulasiLab(filter) {
+  static async getRekapitulasiLab(author, filter) {
     const { limit, offset, ...validatedFilter } = ZodValidator.validate(LaporanValidator.LAB, filter)
-    const [data, total] = await LaporanRepository.getRekapitulasiLab({ filter: validatedFilter, limit, offset })
+    const [data, total] = await LaporanRepository.getRekapitulasiLab({ faskes_uuid: author.faskes_uuid, filter: validatedFilter, limit, offset })
 
     data.map((item) => {
       item.payment_method = PaymentMethodEnum[item.payment_method]
@@ -78,9 +77,9 @@ export default class LaporanService {
     }
   }
 
-  static async getRekapitulasiDiagnosis(filter) {
+  static async getRekapitulasiDiagnosis(author, filter) {
     const { limit, offset, ...validatedFilter } = ZodValidator.validate(LaporanValidator.DIAGNOSIS, filter)
-    const [rekamMedises, total] = await LaporanRepository.getDiagnosisFromMongo({ filter: validatedFilter, limit, offset })
+    const [rekamMedises, total] = await LaporanRepository.getDiagnosisFromMongo({ faskes_uuid: author.faskes_uuid, filter: validatedFilter, limit, offset })
     const data = await LaporanRepository.getRekapitulasiDiagnosis({ rekamMedises, filter: validatedFilter })
 
     const pagination = this.paginate({ total: parseInt(total), limit, offset })
@@ -93,10 +92,10 @@ export default class LaporanService {
     }
   }
 
-  static async exportRekapitulasiKunjungan(filter) {
+  static async exportRekapitulasiKunjungan(author, filter) {
     const { limit = null, offset = null, ...validatedFilter } = ZodValidator.validate(LaporanValidator.KUNJUNGAN, filter)
 
-    const [data] = await LaporanRepository.getRekapitulasiKunjungan({ filter: validatedFilter, limit, offset })
+    const [data] = await LaporanRepository.getRekapitulasiKunjungan({ faskes_uuid: author.faskes_uuid, filter: validatedFilter, limit, offset })
 
     data.map((item) => {
       item.payment_method = PaymentMethodEnum[item.payment_method]
@@ -105,10 +104,10 @@ export default class LaporanService {
     return { payload: data }
   }
 
-  static async exportRekapitulasiTindakan(filter) {
+  static async exportRekapitulasiTindakan(author, filter) {
     const { limit = null, offset = null, ...validatedFilter } = ZodValidator.validate(LaporanValidator.TINDAKAN, filter)
 
-    const [data] = await LaporanRepository.getRekapitulasiTindakan({ filter: validatedFilter, limit, offset })
+    const [data] = await LaporanRepository.getRekapitulasiTindakan({ faskes_uuid: author.faskes_uuid, filter: validatedFilter, limit, offset })
 
     data.map((item) => {
       item.payment_method = PaymentMethodEnum[item.payment_method]
@@ -117,10 +116,10 @@ export default class LaporanService {
     return { payload: data }
   }
 
-  static async exportRekapitulasiLab(filter) {
+  static async exportRekapitulasiLab(author, filter) {
     const { limit = null, offset = null, ...validatedFilter } = ZodValidator.validate(LaporanValidator.LAB, filter)
 
-    const [data] = await LaporanRepository.getRekapitulasiLab({ filter: validatedFilter, limit, offset })
+    const [data] = await LaporanRepository.getRekapitulasiLab({ faskes_uuid: author.faskes_uuid, filter: validatedFilter, limit, offset })
 
     data.map((item) => {
       item.payment_method = PaymentMethodEnum[item.payment_method]
@@ -129,9 +128,9 @@ export default class LaporanService {
     return { payload: data }
   }
 
-  static async exportRekapitulasiDiagnosis(filter) {
+  static async exportRekapitulasiDiagnosis(author, filter) {
     const { limit = null, offset = null, ...validatedFilter } = ZodValidator.validate(LaporanValidator.DIAGNOSIS, filter)
-    const [rekamMedises] = await LaporanRepository.getDiagnosisFromMongo({ filter: validatedFilter, limit, offset })
+    const [rekamMedises] = await LaporanRepository.getDiagnosisFromMongo({ faskes_uuid: author.faskes_uuid, filter: validatedFilter, limit, offset })
     const data = await LaporanRepository.getRekapitulasiDiagnosis({ rekamMedises, filter: validatedFilter })
 
     return { payload: data }
