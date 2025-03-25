@@ -10,8 +10,6 @@ services:
     restart: always
     environment:
       DOTENV_KEY: ${DOTENV_KEY}
-      SERVER_HOST: ${SERVER_HOST}
-      SERVER_PORT: ${SERVER_PORT}
       APPLICATION_MODULE: ${APPLICATION_MODULE}
       API_VERSION: ${API_VERSION}
       API_BASE: ${API_BASE}
