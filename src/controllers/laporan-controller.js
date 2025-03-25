@@ -1,10 +1,10 @@
 import LaporanService from "../services/laporan-service.js";
-import fs from "fs"
 
 export default class LaporanController {
   static async getRekapitulasiKunjungan(request, response, nextFunction) {
     try {
-      const result = await LaporanService.getRekapitulasiKunjungan(request.query)
+      const { author, query } = request
+      const result = await LaporanService.getRekapitulasiKunjungan(author, query)
 
       return response.status(200).json({
         message: 'Data berhasil ditampilkan',
@@ -17,7 +17,8 @@ export default class LaporanController {
 
   static async getRekapitulasiTindakan(request, response, nextFunction) {
     try {
-      const result = await LaporanService.getRekapitulasiTindakan(request.query)
+      const { author, query } = request
+      const result = await LaporanService.getRekapitulasiTindakan(author, query)
 
       return response.status(200).json({
         message: 'Data berhasil ditampilkan',
@@ -30,7 +31,8 @@ export default class LaporanController {
 
   static async getRekapitulasiLab(request, response, nextFunction) {
     try {
-      const result = await LaporanService.getRekapitulasiLab(request.query)
+      const { author, query } = request
+      const result = await LaporanService.getRekapitulasiLab(author, query)
 
       return response.status(200).json({
         message: 'Data berhasil ditampilkan',
@@ -43,7 +45,8 @@ export default class LaporanController {
 
   static async getRekapitulasiDiagnosis(request, response, nextFunction) {
     try {
-      const result = await LaporanService.getRekapitulasiDiagnosis(request.query)
+      const { author, query } = request
+      const result = await LaporanService.getRekapitulasiDiagnosis(author, query)
       return response.status(200).json({
         message: 'Data berhasil ditampilkan',
         ...result
@@ -55,7 +58,8 @@ export default class LaporanController {
 
   static async exportRekapitulasiKunjungan(request, response, nextFunction) {
     try {
-      const result = await LaporanService.exportRekapitulasiKunjungan(request.query)
+      const { author, query } = request
+      const result = await LaporanService.exportRekapitulasiKunjungan(author, query)
 
       return response.status(200).send({
         message: 'Data berhasil di export',
@@ -68,7 +72,8 @@ export default class LaporanController {
 
   static async exportRekapitulasiTindakan(request, response, nextFunction) {
     try {
-      const result = await LaporanService.exportRekapitulasiTindakan(request.query)
+      const { author, query } = request
+      const result = await LaporanService.exportRekapitulasiTindakan(author, query)
 
       return response.status(200).send({
         message: 'Data berhasil di export',
@@ -81,7 +86,8 @@ export default class LaporanController {
 
   static async exportRekapitulasiLab(request, response, nextFunction) {
     try {
-      const result = await LaporanService.exportRekapitulasiKunjungan(request.query)
+      const { author, query } = request
+      const result = await LaporanService.exportRekapitulasiKunjungan(author, query)
 
       return response.status(200).send({
         message: 'Data berhasil di export',
@@ -93,7 +99,8 @@ export default class LaporanController {
   }
   static async exportRekapitulasiDiagnosis(request, response, nextFunction) {
     try {
-      const result = await LaporanService.exportRekapitulasiDiagnosis(request.query)
+      const { author, query } = request
+      const result = await LaporanService.exportRekapitulasiDiagnosis(author, query)
 
       return response.status(200).send({
         message: 'Data berhasil di export',
