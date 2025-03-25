@@ -11,23 +11,23 @@ const PelayananToTableNameEnum = {
 }
 
 export default class LaporanRepository {
-  static async getRekapitulasiKunjungan({ filter = {}, limit, offset }) {
+  static async getRekapitulasiKunjungan({ faskes_uuid, filter = {}, limit, offset }) {
     let query = `
       SELECT visit_type, payment_method, pg.name as doctor_name, COUNT(x.id) AS total FROM 
       (	
-      	SELECT 'igd' AS visit_type, igd.id, igd.payment_method, p.pegawai_uuid, igd.tanggal_daftar FROM instalasi_gawat_darurats igd
+      	SELECT 'igd' AS visit_type, igd.faskes_uuid, igd.id, igd.payment_method, p.pegawai_uuid, igd.tanggal_daftar FROM instalasi_gawat_darurats igd
       	JOIN practitioner p ON igd.practitioner_uuid = p.uuid
       	WHERE igd.deleted_at IS NULL
       
       	UNION ALL
       
-      	SELECT 'rawat_inap' AS visit_type, ri.id, ri.payment_method, p.pegawai_uuid, ri.tanggal_daftar FROM rawat_inaps ri
+      	SELECT 'rawat_inap' AS visit_type, ri.faskes_uuid, ri.id, ri.payment_method, p.pegawai_uuid, ri.tanggal_daftar FROM rawat_inaps ri
       	JOIN practitioner p ON ri.practitioner_uuid = p.uuid
       	WHERE ri.deleted_at IS NULL
       
       	UNION ALL
       
-      	SELECT 'rawat_jalan' AS visit_type, rj.id, rj.payment_method, p.pegawai_uuid, rj.tanggal_daftar FROM rawat_jalans rj
+      	SELECT 'rawat_jalan' AS visit_type, rj.faskes_uuid, rj.id, rj.payment_method, p.pegawai_uuid, rj.tanggal_daftar FROM rawat_jalans rj
       	JOIN practitioner p ON rj.practitioner_uuid = p.uuid
       	WHERE rj.deleted_at IS NULL
       ) x
@@ -35,8 +35,8 @@ export default class LaporanRepository {
     `
 
     // Check filter
-    const replacements = { limit, offset }
-    const whereCondition = []
+    const replacements = { limit, offset, faskes_uuid }
+    const whereCondition = ['x.faskes_uuid = :faskes_uuid']
 
     if (filter.type && filter.type.length) {
       const typePlaceholder = filter.type.map((_, index) => `:type${index}`).join(', ')
@@ -102,15 +102,15 @@ export default class LaporanRepository {
     return [results, countResult[0].count]
   }
 
-  static async getRekapitulasiTindakan({ filter = {}, limit, offset }) {
+  static async getRekapitulasiTindakan({ faskes_uuid, filter = {}, limit, offset }) {
     let query = `
       SELECT ht.nama_tindakan AS "tindakan", ht.pelayanan AS "visit_type", ht.payment_method, COUNT(ht.uuid) AS total
       FROM history_tindakan ht
     `
 
     // Check filter
-    const whereReplacements = [`ht.deleted_at IS NULL`]
-    const replacements = { limit, offset }
+    const whereReplacements = [`ht.deleted_at IS NULL`, `ht.faskes_uuid = :faskes_uuid`]
+    const replacements = { limit, offset, faskes_uuid }
 
     if (filter.name) {
       whereReplacements.push(`ht.nama_tindakan ILIKE :name`)
@@ -176,7 +176,7 @@ export default class LaporanRepository {
     return [results, countResult[0].count]
   }
 
-  static async getRekapitulasiLab({ filter = {}, limit, offset }) {
+  static async getRekapitulasiLab({ faskes_uuid, filter = {}, limit, offset }) {
     let query = `
       SELECT 
           tindakan_data.tindakan,
@@ -194,8 +194,8 @@ export default class LaporanRepository {
     `
 
     // Check filter
-    const whereReplacements = [`ol.deleted_at IS NULL`]
-    const replacements = { limit, offset }
+    const whereReplacements = [`ol.deleted_at IS NULL`, `ol.faskes_uuid = :faskes_uuid`]
+    const replacements = { limit, offset, faskes_uuid }
 
     if (filter.name) {
       whereReplacements.push(`tindakan_data ILIKE :name`)
@@ -260,11 +260,18 @@ export default class LaporanRepository {
     return [results, countResult[0].count]
   }
 
-  static async getDiagnosisFromMongo({ filter = {}, limit, offset }) {
+  static async getDiagnosisFromMongo({ faskes_uuid, filter = {}, limit, offset }) {
     const db = await getMongoDatabase()
     const collection = await db.collection("rekam_medises")
 
     const pipeline = [
+      {
+        $match: {
+          $expr: {
+            $eq: ['$faskes_uuid', faskes_uuid]
+          },
+        }
+      },
       {
         $group: {
           _id: {
@@ -285,8 +292,8 @@ export default class LaporanRepository {
       {
         $facet: {
           data: [
-            { $limit: limit },
-            { $skip: offset }
+            { $skip: offset },
+            { $limit: limit }
           ],
           totalCount: [{ $count: "total" }]
         }
