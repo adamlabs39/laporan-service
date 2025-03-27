@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { number, z } from "zod";
 
 export default class LaporanValidator {
   static #LAPORAN = z.object({
@@ -46,8 +46,17 @@ export default class LaporanValidator {
         .enum(["0", "1", "2"])
         .optional()
         .default("0")
-        .transform(Number)
-        .describe({ 0: "all", 1: "Female", 2: "Male" })
+        .transform((value) => {
+          // Transform number value to all|Male|Female
+          const numberVal = parseInt(value)
+          const map = {
+            "0": "all",
+            "1": "Male",
+            "2": "Female"
+          }
+
+          return map[numberVal]
+        })
     })
   )
 }
