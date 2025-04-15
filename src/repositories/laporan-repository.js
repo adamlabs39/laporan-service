@@ -185,7 +185,7 @@ export default class LaporanRepository {
           COUNT(*) AS total
       FROM order_lab ol
       JOIN order_lab_pemeriksaan olp ON olp.order_lab_uuid = ol.uuid
-      JOIN tarif_lab_item tl ON tl.uuid = olp.tarif_lab_item_uuid
+      JOIN tarif_lab_item tl ON tl.uuid = olp.tarif_lab_uuid
       LEFT JOIN LATERAL (
           SELECT ip.name AS tindakan FROM item_pemeriksaan ip WHERE ip.uuid = tl.item_pemeriksaan_uuid
           UNION ALL
