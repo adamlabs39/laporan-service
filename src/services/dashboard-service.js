@@ -5,8 +5,22 @@ import ZodValidator from "../validations/zod-validator.js";
 export default class DashboardService {
   static async getRekapDashboard(author, filter) {
     const validatedFilter = ZodValidator.validate(DashboardValidator.DASHBOARD, filter)
-    const result = await DashboardRepository.getTotalKunjungan({ faskes_uuid: author.faskesUuid, filter: validatedFilter })
-    return result
+
+    const [totalKunjungan, totalTransaksi, totalPendapatan, totalPasienBatal] = await Promise.all([
+      DashboardRepository.getTotalKunjungan({ faskes_uuid: author.faskesUuid, filter: validatedFilter }),
+      DashboardRepository.getTotalTransaksiObat({ faskes_uuid: author.faskesUuid, filter: validatedFilter }),
+      DashboardRepository.getTotalPendapatanKlinik({ faskes_uuid: author.faskesUuid, filter: validatedFilter }),
+      DashboardRepository.getTotalPasienBatal({ faskes_uuid: author.faskesUuid, filter: validatedFilter })
+    ])
+
+    const results = {
+      totalKunjungan,
+      totalTransaksi,
+      totalPendapatan,
+      totalPasienBatal
+    }
+
+    return results
   }
 
   static async getTotalKunjunganRawatJalan(author, filter) {
