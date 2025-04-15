@@ -2,8 +2,6 @@ import writeXlsxFile from "write-excel-file";
 import LaporanRepository from "../repositories/laporan-repository.js";
 import LaporanValidator from "../validations/laporan-validation.js";
 import ZodValidator from "../validations/zod-validator.js";
-import path from "path"
-import ExcelJS from "exceljs"
 
 const PaymentMethodEnum = {
   1: 'tunai',
@@ -79,8 +77,8 @@ export default class LaporanService {
 
   static async getRekapitulasiDiagnosis(author, filter) {
     const { limit, offset, ...validatedFilter } = ZodValidator.validate(LaporanValidator.DIAGNOSIS, filter)
-    const [rekamMedises, total] = await LaporanRepository.getDiagnosisFromMongo({ faskes_uuid: author.faskesUuid, filter: validatedFilter, limit, offset })
-    const data = await LaporanRepository.getRekapitulasiDiagnosis({ rekamMedises, filter: validatedFilter })
+    const [rekamMedises] = await LaporanRepository.getDiagnosisFromMongo({ faskes_uuid: author.faskesUuid, filter: validatedFilter, limit, offset })
+    const [data, total] = await LaporanRepository.getRekapitulasiDiagnosis({ rekamMedises, filter: validatedFilter })
 
     const pagination = this.paginate({ total: parseInt(total), limit, offset })
 
