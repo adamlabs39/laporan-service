@@ -1,6 +1,7 @@
 import express from "express"
 import dotenv from "dotenv"
 import laporanRoutes from "./routes/laporan-routes.js"
+import dashboardRoutes from "./routes/dashboard-routes.js"
 import errorMiddleware from "./middlewares/error-middleware.js"
 import authorizationSdk from "@adameds/authorization-sdk"
 
@@ -10,6 +11,7 @@ const application = express()
 application.use(express.json())
 application.use(authorizationSdk([]))
 application.use(baseUrl, laporanRoutes)
+application.use(baseUrl, dashboardRoutes)
 application.use(errorMiddleware)
 
 const SERVER_HOST = process.env.SERVER_HOST
