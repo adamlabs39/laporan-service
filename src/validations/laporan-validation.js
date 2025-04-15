@@ -43,20 +43,9 @@ export default class LaporanValidator {
   static DIAGNOSIS = this.#LAPORAN.and(
     z.object({
       gender: z
-        .enum(["0", "1", "2"])
+        .enum(["all", "Female", "Male"])
         .optional()
-        .default("0")
-        .transform((value) => {
-          // Transform number value to all|Male|Female
-          const numberVal = parseInt(value)
-          const map = {
-            "0": "all",
-            "1": "Male",
-            "2": "Female"
-          }
-
-          return map[numberVal]
-        })
+        .default("all")
     })
   )
 }

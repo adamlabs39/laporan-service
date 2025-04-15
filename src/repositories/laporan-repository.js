@@ -217,12 +217,12 @@ export default class LaporanRepository {
     }
 
     if (filter.startDate) {
-      whereReplacements.push(`ol.startDate >= :startDate`)
+      whereReplacements.push(`ol.tgl_pemeriksaan >= :startDate`)
       replacements.startDate = dateToEpoch(filter.startDate)
     }
 
     if (filter.endDate) {
-      whereReplacements.push(`ol.endDate >= :endDate`)
+      whereReplacements.push(`ol.tgl_pemeriksaan >= :endDate`)
       replacements.endDate = dateToEpoch(filter.endDate)
     }
 
@@ -332,6 +332,7 @@ export default class LaporanRepository {
       query.push(rekamMedisQuery)
     })
 
+    let whereReplacements = []
     let finalQuery = `
       SELECT 
         y.diagnosis,
@@ -346,9 +347,33 @@ export default class LaporanRepository {
       FROM (${query.join(' UNION ALL ')}) y
     `
 
-    if (filter.gender) {
-      finalQuery += ' WHERE y.gender = :gender'
+    if (filter.type) {
+      const typeReplacements = filter.type.map((_, index) => `:type${index}`).join(', ')
+      whereReplacements.push(`y.visit_type IN (${typeReplacements})`)
+
+      filter.type.forEach((type, index) => {
+        replacements[`type${index}`] = type
+      })
+    }
+
+    if (filter.gender !== "all") {
+      whereReplacements.push('y.gender = :gender')
       replacements.gender = filter.gender
+    }
+
+    if (filter.startDate) {
+      whereReplacements.push(`y.tanggal_daftar >= :startDate`)
+      replacements.startDate = dateToEpoch(filter.startDate)
+    }
+
+    if (filter.endDate) {
+      whereReplacements.push(`y.tanggal_daftar >= :endDate`)
+      replacements.endDate = dateToEpoch(filter.endDate)
+    }
+
+    // Merge all where condition
+    if (whereReplacements.length > 0) {
+      finalQuery += ' WHERE ' + whereReplacements.join(' AND ')
     }
 
     finalQuery += ' GROUP BY y.diagnosis, y.gender, y.visit_type'
