@@ -1,4 +1,4 @@
-import { QueryTypes } from "sequelize"
+import { QueryTypes, where } from "sequelize"
 import sequelizeInstance from "../config/sequelize-db.js"
 import { dateToEpoch } from "../helpers/date-helper.js"
 
@@ -39,6 +39,104 @@ export default class DashboardRepository {
     return results
   }
 
+  static async getTotalPasienBatal({ faskes_uuid, filter = {} }) {
+    let query = `
+     SELECT COUNT(x.id) AS total FROM 
+      (	
+      	SELECT 'igd' AS visit_type, igd.faskes_uuid, igd.id, igd.tanggal_daftar, igd.deleted_at, igd.status_igd AS status FROM instalasi_gawat_darurats igd
+      	UNION ALL
+      	SELECT 'rawat_inap' AS visit_type, ri.faskes_uuid, ri.id, ri.tanggal_daftar, ri.deleted_at, ri.status_ri AS status FROM rawat_inaps ri
+      	UNION ALL
+      	SELECT 'rawat_jalan' AS visit_type, rj.faskes_uuid, rj.id, rj.tanggal_daftar, rj.deleted_at, rj.status_rj AS status FROM rawat_jalans rj
+      ) x 
+    `
+
+    let whereReplacement = [`x.status = 0`, `x.faskes_uuid = :faskes_uuid`, `x.deleted_at IS NULL`]
+    const replacements = { faskes_uuid }
+
+    if (filter.startDate) {
+      whereReplacement.push(`x.tanggal_daftar >= :startDate`)
+      replacements.startDate = dateToEpoch(filter.startDate)
+    }
+    if (filter.endDate) {
+      whereReplacement.push(`x.tanggal_daftar <= :endDate`)
+      replacements.endDate = dateToEpoch(filter.endDate)
+    }
+
+    if (whereReplacement.length > 0) {
+      query += ' WHERE ' + whereReplacement.join(' AND ')
+    }
+
+    const results = await sequelizeInstance.query(query, {
+      replacements,
+      type: QueryTypes.SELECT
+    })
+
+    return results
+  }
+
+  static async getTotalTransaksiObat({ faskes_uuid, filter = {} }) {
+    let query = `
+    SELECT COUNT(po.id) AS total 
+    FROM penjualan_obat po
+    `
+
+    const whereConditions = ['po.deleted_at IS NULL', 'po.faskes_uuid = :faskes_uuid']
+    const replacements = { faskes_uuid }
+
+    if (filter.startDate) {
+      whereConditions.push('po.tanggal >= :startDate')
+      replacements.startDate = dateToEpoch(filter.startDate)
+    }
+
+    if (filter.endDate) {
+      whereConditions.push('po.tanggal <= :endDate')
+      replacements.endDate = dateToEpoch(filter.endDate)
+    }
+
+    if (whereConditions.length > 0) {
+      query += ' WHERE ' + whereConditions.join(' AND ')
+    }
+
+    const results = await sequelizeInstance.query(query, {
+      replacements,
+      type: QueryTypes.SELECT
+    })
+
+    return results
+  }
+
+  static async getTotalPendapatanKlinik({ faskes_uuid, filter = {} }) {
+    let query = `
+    SELECT COALESCE(SUM(b.grand_total), 0) AS total 
+    FROM bills b
+    `
+
+    const whereConditions = ['b.deleted_at IS NULL', 'b.faskes_uuid = :faskes_uuid']
+    const replacements = { faskes_uuid }
+
+    if (filter.startDate) {
+      whereConditions.push('b.created_at >= :startDate')
+      replacements.startDate = dateToEpoch(filter.startDate)
+    }
+
+    if (filter.endDate) {
+      whereConditions.push('b.created_at <= :endDate')
+      replacements.endDate = dateToEpoch(filter.endDate)
+    }
+
+    if (whereConditions.length > 0) {
+      query += ' WHERE ' + whereConditions.join(' AND ')
+    }
+
+    const results = await sequelizeInstance.query(query, {
+      replacements,
+      type: QueryTypes.SELECT
+    })
+
+    return results
+  }
+
   static async getTotalKunjunganRawatJalan({ faskes_uuid, filter = {} }) {
     let query = `
     SELECT 
@@ -65,8 +163,6 @@ export default class DashboardRepository {
     if (whereConditions.length > 0) {
       query += ' WHERE ' + whereConditions.join(' AND ')
     }
-
-    console.log(query)
 
     const results = await sequelizeInstance.query(query, {
       replacements,
@@ -216,23 +312,25 @@ export default class DashboardRepository {
 
   static async getTotalPendapatan({ faskes_uuid, filter = {} }) {
     let query = `
-      SELECT 
-	      TO_TIMESTAMP(cr.shift_time_open)::DATE AS tanggal,
-	      COALESCE(SUM(cr.transaction_total), 0) AS total
-      FROM cashier_report cr
+    SELECT SUM(x.total) AS total, x.tanggal, x.type 
+    FROM (
+        SELECT 'masuk' AS TYPE, b.grand_total AS total, TO_TIMESTAMP(b.created_at)::DATE AS tanggal, b.deleted_at, b.faskes_uuid FROM bills b
+        UNION ALL
+        SELECT 'keluar' AS TYPE, pbs.grand_total AS total, TO_TIMESTAMP(pbs.tanggal_pembelian)::DATE AS tanggal, pbs.deleted_at, pbs.faskes_uuid FROM public."pembelian_Barang_supplier" pbs
+    ) x
     `
 
-    const whereConditions = ['cr.faskes_uuid = :faskes_uuid', 'cr.deleted_at IS NULL']
+    const whereConditions = ['x.deleted_at IS NULL', 'x.faskes_uuid = :faskes_uuid']
     const replacements = { faskes_uuid }
 
     if (filter.startDate) {
-      whereConditions.push('cr.shift_time_open >= :startDate')
-      replacements.startDate = dateToEpoch(filter.startDate)
+      whereConditions.push('x.tanggal >= :startDate')
+      replacements.startDate = filter.startDate
     }
 
     if (filter.endDate) {
-      whereConditions.push('cr.shift_time_open <= :endDate')
-      replacements.endDate = dateToEpoch(filter.endDate)
+      whereConditions.push('x.tanggal <= :endDate')
+      replacements.endDate = filter.endDate
     }
 
     if (whereConditions.length > 0) {
@@ -240,7 +338,7 @@ export default class DashboardRepository {
     }
 
     query += `
-      GROUP BY TO_TIMESTAMP(cr.shift_time_open)::date
+      GROUP BY x.tanggal, x.TYPE
     `
 
     const results = await sequelizeInstance.query(query, {
@@ -250,7 +348,6 @@ export default class DashboardRepository {
 
     return results
   }
-
 
   static async getRekapitulasiTopPoli({ faskes_uuid, filter = {} }) {
     let query = `
