@@ -1,0 +1,338 @@
+import { QueryTypes } from "sequelize"
+import sequelizeInstance from "../config/sequelize-db.js"
+import { dateToEpoch } from "../helpers/date-helper.js"
+
+export default class DashboardRepository {
+  static async getTotalKunjungan({ faskes_uuid, filter = {} }) {
+    let query = `
+      SELECT COUNT(x.id) AS total FROM 
+      (	
+      	SELECT 'igd' AS visit_type, igd.faskes_uuid, igd.id, igd.tanggal_daftar, igd.deleted_at FROM instalasi_gawat_darurats igd
+      	UNION ALL
+      	SELECT 'rawat_inap' AS visit_type, ri.faskes_uuid, ri.id, ri.tanggal_daftar, ri.deleted_at FROM rawat_inaps ri
+      	UNION ALL
+      	SELECT 'rawat_jalan' AS visit_type, rj.faskes_uuid, rj.id, rj.tanggal_daftar, rj.deleted_at FROM rawat_jalans rj
+      ) x
+    `
+
+    let whereReplacement = [`x.faskes_uuid = :faskes_uuid`, `x.deleted_at IS NULL`]
+    const replacements = { faskes_uuid }
+
+    if (filter.startDate) {
+      whereReplacement.push(`x.tanggal_daftar >= :startDate`)
+      replacements.startDate = dateToEpoch(filter.startDate)
+    }
+    if (filter.endDate) {
+      whereReplacement.push(`x.tanggal_daftar <= :endDate`)
+      replacements.endDate = dateToEpoch(filter.endDate)
+    }
+
+    if (whereReplacement.length > 0) {
+      query += ' WHERE ' + whereReplacement.join(' AND ')
+    }
+
+    const results = await sequelizeInstance.query(query, {
+      replacements,
+      type: QueryTypes.SELECT
+    })
+
+    return results
+  }
+
+  static async getTotalKunjunganRawatJalan({ faskes_uuid, filter = {} }) {
+    let query = `
+    SELECT 
+      COUNT(rj.uuid) AS total,
+      COUNT(CASE WHEN rj.status_rj IN (1, 2) THEN 1 END) AS total_antrian,
+      COUNT(CASE WHEN rj.status_rj = 4 THEN 1 END) AS total_diperiksa,
+      COUNT(CASE WHEN rj.status_rj = 5 THEN 1 END) AS total_discharge
+    FROM rawat_jalans rj
+  `
+
+    const whereConditions = ['rj.faskes_uuid = :faskes_uuid', 'rj.deleted_at IS NULL']
+    const replacements = { faskes_uuid }
+
+    if (filter.startDate) {
+      whereConditions.push('rj.tanggal_daftar >= :startDate')
+      replacements.startDate = dateToEpoch(filter.startDate)
+    }
+
+    if (filter.endDate) {
+      whereConditions.push('rj.tanggal_daftar <= :endDate')
+      replacements.endDate = dateToEpoch(filter.endDate)
+    }
+
+    if (whereConditions.length > 0) {
+      query += ' WHERE ' + whereConditions.join(' AND ')
+    }
+
+    console.log(query)
+
+    const results = await sequelizeInstance.query(query, {
+      replacements,
+      type: QueryTypes.SELECT
+    })
+
+    return results
+  }
+
+  static async getTotalKunjunganStatusRawat({ faskes_uuid, filter = {} }) {
+    let query = `
+    SELECT 
+      TO_TIMESTAMP(x.tanggal_daftar)::date AS tgl,
+      COUNT(CASE WHEN x.visit_type = 'igd' THEN x.id END) AS igd,
+      COUNT(CASE WHEN x.visit_type = 'rawat_inap' THEN x.id END) AS rawat_inap,
+      COUNT(CASE WHEN x.visit_type = 'rawat_jalan' THEN x.id END) AS rawat_jalan
+    FROM 
+      (	
+        SELECT 'igd' AS visit_type, igd.faskes_uuid, igd.id, igd.tanggal_daftar, igd.deleted_at 
+        FROM instalasi_gawat_darurats igd
+        UNION ALL
+        SELECT 'rawat_inap' AS visit_type, ri.faskes_uuid, ri.id, ri.tanggal_daftar, ri.deleted_at 
+        FROM rawat_inaps ri
+        UNION ALL
+        SELECT 'rawat_jalan' AS visit_type, rj.faskes_uuid, rj.id, rj.tanggal_daftar, rj.deleted_at 
+        FROM rawat_jalans rj
+      ) x
+  `;
+
+    const whereConditions = ['x.faskes_uuid = :faskes_uuid', 'x.deleted_at IS NULL'];
+    const replacements = { faskes_uuid };
+
+    if (filter.startDate) {
+      whereConditions.push('x.tanggal_daftar >= :startDate');
+      replacements.startDate = dateToEpoch(filter.startDate);
+    }
+
+    if (filter.endDate) {
+      whereConditions.push('x.tanggal_daftar <= :endDate');
+      replacements.endDate = dateToEpoch(filter.endDate);
+    }
+
+    if (whereConditions.length > 0) {
+      query += ' WHERE ' + whereConditions.join(' AND ');
+    }
+
+    query += `
+    GROUP BY TO_TIMESTAMP(x.tanggal_daftar)::DATE
+    ORDER BY tgl;
+  `;
+
+    const results = await sequelizeInstance.query(query, {
+      replacements,
+      type: QueryTypes.SELECT
+    });
+
+    return results;
+  }
+
+  static async getTotalKunjunganPasien({ faskes_uuid, filter = {} }) {
+    let query = `
+    SELECT 
+      COUNT(x.id)
+    FROM 
+        (	
+            SELECT 'igd' AS visit_type, igd.faskes_uuid, igd.id, igd.tanggal_daftar, igd.deleted_at 
+            FROM instalasi_gawat_darurats igd
+            WHERE igd.status_igd != 0
+            UNION ALL
+            SELECT 'rawat_inap' AS visit_type, ri.faskes_uuid, ri.id, ri.tanggal_daftar, ri.deleted_at 
+            FROM rawat_inaps ri
+            WHERE ri.status_ri != 0
+            UNION ALL
+            SELECT 'rawat_jalan' AS visit_type, rj.faskes_uuid, rj.id, rj.tanggal_daftar, rj.deleted_at 
+            FROM rawat_jalans rj
+            WHERE rj.status_rj != 0
+        ) x
+      `
+
+    const whereConditions = ['x.faskes_uuid = :faskes_uuid', 'x.deleted_at IS NULL']
+    const replacements = { faskes_uuid }
+
+    if (filter.startDate) {
+      whereConditions.push('x.tanggal_daftar >= :startDate')
+      replacements.startDate = dateToEpoch(filter.startDate)
+    }
+
+    if (filter.endDate) {
+      whereConditions.push('x.tanggal_daftar <= :endDate')
+      replacements.endDate = dateToEpoch(filter.endDate)
+    }
+
+    if (whereConditions.length > 0) {
+      query += ' WHERE ' + whereConditions.join(' AND ')
+    }
+
+    const results = await sequelizeInstance.query(query, {
+      replacements,
+      type: QueryTypes.SELECT
+    })
+
+    return results
+  }
+
+  static async getTotalKunjunganByGender({ faskes_uuid, filter = {} }) {
+    let query = `
+    SELECT 
+      COUNT(CASE WHEN x.gender = 'Male' THEN 1 END) AS total_male,
+      COUNT(CASE WHEN x.gender = 'Female' THEN 1 END) AS total_female
+    FROM 
+       (	
+           SELECT 'igd' AS visit_type, igd.faskes_uuid, igd.id, igd.tanggal_daftar, igd.deleted_at, igd.gender 
+           FROM instalasi_gawat_darurats igd
+           UNION ALL
+           SELECT 'rawat_inap' AS visit_type, ri.faskes_uuid, ri.id, ri.tanggal_daftar, ri.deleted_at, ri.gender
+           FROM rawat_inaps ri
+           UNION ALL
+           SELECT 'rawat_jalan' AS visit_type, rj.faskes_uuid, rj.id, rj.tanggal_daftar, rj.deleted_at, rj.gender
+           FROM rawat_jalans rj
+       ) x
+    `
+
+    const whereConditions = ['x.faskes_uuid = :faskes_uuid', 'x.deleted_at IS NULL']
+    const replacements = { faskes_uuid }
+
+    if (filter.startDate) {
+      whereConditions.push('x.tanggal_daftar >= :startDate')
+      replacements.startDate = dateToEpoch(filter.startDate)
+    }
+
+    if (filter.endDate) {
+      whereConditions.push('x.tanggal_daftar <= :endDate')
+      replacements.endDate = dateToEpoch(filter.endDate)
+    }
+
+    if (whereConditions.length > 0) {
+      query += ' WHERE ' + whereConditions.join(' AND ')
+    }
+
+    const results = await sequelizeInstance.query(query, {
+      replacements,
+      type: QueryTypes.SELECT
+    })
+
+    return results
+  }
+
+  static async getTotalPendapatan({ faskes_uuid, filter = {} }) {
+    let query = `
+      SELECT 
+	      TO_TIMESTAMP(cr.shift_time_open)::DATE AS tanggal,
+	      COALESCE(SUM(cr.transaction_total), 0) AS total
+      FROM cashier_report cr
+    `
+
+    const whereConditions = ['cr.faskes_uuid = :faskes_uuid', 'cr.deleted_at IS NULL']
+    const replacements = { faskes_uuid }
+
+    if (filter.startDate) {
+      whereConditions.push('cr.shift_time_open >= :startDate')
+      replacements.startDate = dateToEpoch(filter.startDate)
+    }
+
+    if (filter.endDate) {
+      whereConditions.push('cr.shift_time_open <= :endDate')
+      replacements.endDate = dateToEpoch(filter.endDate)
+    }
+
+    if (whereConditions.length > 0) {
+      query += ' WHERE ' + whereConditions.join(' AND ')
+    }
+
+    query += `
+      GROUP BY TO_TIMESTAMP(cr.shift_time_open)::date
+    `
+
+    const results = await sequelizeInstance.query(query, {
+      replacements,
+      type: QueryTypes.SELECT
+    })
+
+    return results
+  }
+
+
+  static async getRekapitulasiTopPoli({ faskes_uuid, filter = {} }) {
+    let query = `
+    SELECT
+      COUNT(rj.id) AS total,
+      l.name AS poli 
+    FROM rawat_jalans rj
+    JOIN lokasi l ON rj.lokasi_uuid = l.uuid
+    `
+
+    const whereConditions = ['rj.faskes_uuid = :faskes_uuid', 'rj.deleted_at IS NULL']
+    const replacements = { faskes_uuid }
+
+    if (filter.startDate) {
+      whereConditions.push('rj.tanggal_daftar >= :startDate')
+      replacements.startDate = dateToEpoch(filter.startDate)
+    }
+
+    if (filter.endDate) {
+      whereConditions.push('rj.tanggal_daftar <= :endDate')
+      replacements.endDate = dateToEpoch(filter.endDate)
+    }
+
+    if (whereConditions.length > 0) {
+      query += ' WHERE ' + whereConditions.join(' AND ')
+    }
+
+    query += `
+      GROUP BY l.name
+    `
+
+    const results = await sequelizeInstance.query(query, {
+      replacements,
+      type: QueryTypes.SELECT
+    })
+
+    return results
+  }
+
+  static async getRekapitulasiTopDPJP({ faskes_uuid, filter = {} }) {
+    let query = `
+    SELECT COUNT(x.id) AS total, pg.name 
+    FROM  
+      (	
+      	SELECT 'igd' AS visit_type, igd.faskes_uuid, igd.id, igd.tanggal_daftar, igd.deleted_at, igd.practitioner_uuid FROM instalasi_gawat_darurats igd
+      	UNION ALL
+      	SELECT 'rawat_inap' AS visit_type, ri.faskes_uuid, ri.id, ri.tanggal_daftar, ri.deleted_at, ri.practitioner_uuid FROM rawat_inaps ri
+      	UNION ALL
+      	SELECT 'rawat_jalan' AS visit_type, rj.faskes_uuid, rj.id, rj.tanggal_daftar, rj.deleted_at, rj.practitioner_uuid FROM rawat_jalans rj
+      ) x
+    JOIN practitioner p ON p.uuid = x.practitioner_uuid
+    JOIN pegawai pg ON pg.uuid = p.uuid
+    `
+
+    const whereConditions = ['x.faskes_uuid = :faskes_uuid', 'x.deleted_at IS NULL']
+    const replacements = { faskes_uuid }
+
+    if (filter.startDate) {
+      whereConditions.push('x.tanggal_daftar >= :startDate')
+      replacements.startDate = dateToEpoch(filter.startDate)
+    }
+
+    if (filter.endDate) {
+      whereConditions.push('x.tanggal_daftar <= :endDate')
+      replacements.endDate = dateToEpoch(filter.endDate)
+    }
+
+    if (whereConditions.length > 0) {
+      query += ' WHERE ' + whereConditions.join(' AND ')
+    }
+
+    query += `
+    GROUP BY x.practitioner_uuid, pg.name
+    ORDER BY COUNT(x.id) DESC
+    `
+
+    const results = await sequelizeInstance.query(query, {
+      replacements,
+      type: QueryTypes.SELECT
+    })
+
+    return results
+  }
+
+}
