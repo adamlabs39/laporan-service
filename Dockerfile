@@ -1,4 +1,4 @@
-FROM node:23-alpine3.20
+FROM node:25-alpine3.22
 WORKDIR /adameds-laporan
 COPY . .
 ENV SERVER_HOST=0.0.0.0
